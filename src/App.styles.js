@@ -49,12 +49,14 @@ export const CustomButton = styled.button`
 const setVisibility = ({visibility}) => visibility ? 'flex' : 'none'
 
 export const ImageContainer = styled.div`
-    display: ${setVisibility}
+    display: ${setVisibility};
+
+    canvas {
+        position: absolute;
+    }
 `
 
 export const Image = styled.img`
-    height: 500px;
-    width: auto;
 `
 
 export const VideoContainer = styled.video`
