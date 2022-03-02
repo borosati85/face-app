@@ -17,7 +17,7 @@ const App = () => {
   const onSubmit = async () => {
     setUrl(input);
     stopVideo();
-    setImageVisibility(1);    
+    await setImageVisibility(1);    
     setInput('');
     handleImage();
   }
@@ -51,13 +51,18 @@ const App = () => {
       faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
       faceapi.nets.faceExpressionNet.loadFromUri('/models'),
       faceapi.nets.ageGenderNet.loadFromUri('/models')
-    ]).then(console.log('loaded'))
-    .catch(err => console.error(err))
+    ]).catch(err => console.error(err))
   }, [])
 
   const handleImage = async () => {
     const input = imageRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = input.width;
+    canvas.height = input.height;
     const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
+    const resized = await faceapi.resizeResults(detections, { width: input.width, height: input.height });
+    faceapi.draw.drawDetections(canvas, resized);
+
   }
 
   return (
@@ -73,13 +78,14 @@ const App = () => {
         videoVisibility
         ? <CustomButton onClick={stopVideo}>Stop Camera</CustomButton>
         : <CustomButton onClick={startVideo}>Start Camera</CustomButton>      
-      }      
+      } 
       <ImageContainer visibility={imageVisibility}>        
-        <Image crossOrigin='anonymous' src={url} alt='' width="720" height="560" ref={imageRef}></Image>        
-        <canvas width="720" height="560" ref={canvasRef}></canvas>        
-      </ImageContainer>      
+        <Image crossOrigin='anonymous' src={url} alt='' width="720" height="560" ref={imageRef}></Image>       
+        <canvas width="720" height="560" ref={canvasRef}></canvas>
+      </ImageContainer>    
       <VideoContainer visibility={videoVisibility} ref={videoRef} width="720" height="560" autoPlay muted></VideoContainer>
-    </Container>
+
+    </Container>    
   )
 }
 
