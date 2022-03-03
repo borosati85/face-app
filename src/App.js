@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Container, MainHeader, SubText, InputContainer, UrlInput, CustomButton, ImageContainer, Image, VideoContainer } from './App.styles';
+import { Container, MainHeader, SubText, InputContainer, UrlInput, CustomButton, ImageContainer, Image, VideoContainer, DisplayResults } from './App.styles';
 import * as faceapi from 'face-api.js';
 import './App.css';
 
@@ -51,7 +51,10 @@ const App = () => {
       faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
       faceapi.nets.faceExpressionNet.loadFromUri('/models'),
       faceapi.nets.ageGenderNet.loadFromUri('/models')
-    ]).catch(err => console.error(err))
+    ]).catch(err => console.error(err));
+    videoRef.current.addEventListener('play',() => {
+      setInterval(handleVideo,100)
+    })
   }, [])
 
   const handleImage = async () => {
@@ -61,8 +64,27 @@ const App = () => {
     canvas.height = input.height;
     const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
     const resized = await faceapi.resizeResults(detections, { width: input.width, height: input.height });
-    faceapi.draw.drawDetections(canvas, resized);
 
+    resized.forEach( detection => {
+      const box = detection.detection.box
+      const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
+      drawBox.draw(canvas)
+    })
+  }
+
+  const handleVideo = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.width;
+    canvas.height = video.height;
+    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
+    const resized = await faceapi.resizeResults(detections, { width: video.width, height: video.height });
+    console.log(detections);
+    resized.forEach( detection => {
+      const box = detection.detection.box
+      const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
+      drawBox.draw(canvas)
+    })
   }
 
   return (
@@ -79,12 +101,14 @@ const App = () => {
         ? <CustomButton onClick={stopVideo}>Stop Camera</CustomButton>
         : <CustomButton onClick={startVideo}>Start Camera</CustomButton>      
       } 
-      <ImageContainer visibility={imageVisibility}>        
-        <Image crossOrigin='anonymous' src={url} alt='' width="720" height="560" ref={imageRef}></Image>       
-        <canvas width="720" height="560" ref={canvasRef}></canvas>
-      </ImageContainer>    
-      <VideoContainer visibility={videoVisibility} ref={videoRef} width="720" height="560" autoPlay muted></VideoContainer>
+      <DisplayResults>
+        <ImageContainer visibility={imageVisibility}>        
+          <Image crossOrigin='anonymous' src={url} alt='' width="720" height="560" ref={imageRef}></Image>   
+        </ImageContainer>    
+        <VideoContainer visibility={videoVisibility} ref={videoRef} width="720" height="560" autoPlay muted></VideoContainer>
+        <canvas width="720" height="560" ref={canvasRef}></canvas>        
 
+      </DisplayResults>      
     </Container>    
   )
 }

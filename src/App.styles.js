@@ -8,7 +8,7 @@ export const Container = styled.div`
     flex-direction: column;
     gap: 20px;
     align-items: center;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif;    
  `
   
  export const MainHeader = styled.h1`
@@ -50,10 +50,7 @@ const setVisibility = ({visibility}) => visibility ? 'flex' : 'none'
 
 export const ImageContainer = styled.div`
     display: ${setVisibility};
-
-    canvas {
-        position: absolute;
-    }
+    
 `
 
 export const Image = styled.img`
@@ -61,4 +58,13 @@ export const Image = styled.img`
 
 export const VideoContainer = styled.video`
     display: ${setVisibility}
+`
+
+export const DisplayResults = styled.div`
+    position: relative;
+    canvas {
+        position: absolute;
+        top: 0;
+    }
+
 `
