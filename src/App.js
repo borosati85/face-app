@@ -58,11 +58,15 @@ const App = () => {
   }
 
   const handleImage = async () => {
+    console.log('start');
+    console.log(faceapi);
     const input = imageRef.current;
     const canvas = canvasRef.current;
     canvas.width = input.width;
     canvas.height = input.height;
-    const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
+    
+    const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender(); 
+    console.log(detections);   
     const resized = await faceapi.resizeResults(detections, { width: input.width, height: input.height });
     resized.forEach( detection => {
       const box = detection.detection.box;
@@ -94,14 +98,15 @@ const App = () => {
   },[videoIntervalId]);
 
   useEffect(() => {
+    const MODEL_URL = process.env.PUBLIC_URL + '/models';
     Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
-      faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-      faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-      faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-      faceapi.nets.faceExpressionNet.loadFromUri('/models'),
-      faceapi.nets.ageGenderNet.loadFromUri('/models')
-    ]).catch(err => console.error(err));
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+      faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
+    ]).then(console.log('loaded')).catch(err => console.error(err));
 
     const video = videoRef.current;
 
