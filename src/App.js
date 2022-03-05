@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Container, MainHeader, SubText, InputContainer, UrlInput, CustomButton, ImageContainer, Image, VideoContainer, DisplayResults } from './App.styles';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Container, MainHeader, SubText, InputContainer, UrlInput, CustomButton, ImageContainer, Image, VideoContainer, DisplayResults, CanvasContainer } from './App.styles';
 import * as faceapi from 'face-api.js';
 import './App.css';
 
@@ -9,15 +9,25 @@ const App = () => {
   const [url, setUrl] = useState('');
   const [imageVisibility, setImageVisibility] = useState(0);
   const [videoVisibility, setVideoVisibility] = useState(0);
+  const [canvasVisibility, setCanvasVisibility] = useState(0);
+  const [videoIntervalId, setVideoIntervalId] = useState('');
 
   const handleChange = event => {
     setInput(event.target.value);
   }
 
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
   const onSubmit = async () => {
+    clearCanvas();
     setUrl(input);
-    stopVideo();
-    await setImageVisibility(1);    
+    await stopVideo();
+    await setCanvasVisibility(1);
+    await setImageVisibility(1); 
     setInput('');
     handleImage();
   }
@@ -29,6 +39,7 @@ const App = () => {
   const startVideo = () => {
     setImageVisibility(0);
     setVideoVisibility(1);
+    setCanvasVisibility(1);
     navigator.getUserMedia(
       { video: {} },
       stream => videoRef.current.srcObject = stream,
@@ -36,12 +47,51 @@ const App = () => {
     )    
   }
 
-  const stopVideo = () => {
-    if (videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks()[0].stop()
+  const stopVideo = async () => {
+    const video = videoRef.current;
+    if (video.srcObject) {
+      await video.srcObject.getTracks()[0].stop()
     }
-    setVideoVisibility(0);
+    await clearInterval(videoIntervalId);
+    await setVideoVisibility(0); 
+    setCanvasVisibility(0); 
   }
+
+  const handleImage = async () => {
+    const input = imageRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = input.width;
+    canvas.height = input.height;
+    const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
+    const resized = await faceapi.resizeResults(detections, { width: input.width, height: input.height });
+    resized.forEach( detection => {
+      const box = detection.detection.box;
+      const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
+      drawBox.draw(canvas)
+    })
+  }
+
+  const handleVideo = useCallback(() => {
+    if (videoIntervalId) {
+      clearInterval(videoIntervalId);
+    }
+    
+    const currentVideoIntervalId = setInterval(async () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.width;
+      canvas.height = video.height;
+      const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
+      const resized = await faceapi.resizeResults(detections, { width: video.width, height: video.height });
+      resized.forEach( detection => {
+        const box = detection.detection.box;
+        const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
+        drawBox.draw(canvas)
+      },100)
+    });
+
+    setVideoIntervalId(currentVideoIntervalId);
+  },[videoIntervalId]);
 
   useEffect(() => {
     Promise.all([
@@ -52,40 +102,15 @@ const App = () => {
       faceapi.nets.faceExpressionNet.loadFromUri('/models'),
       faceapi.nets.ageGenderNet.loadFromUri('/models')
     ]).catch(err => console.error(err));
-    videoRef.current.addEventListener('play',() => {
-      setInterval(handleVideo,100)
-    })
-  }, [])
 
-  const handleImage = async () => {
-    const input = imageRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = input.width;
-    canvas.height = input.height;
-    const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
-    const resized = await faceapi.resizeResults(detections, { width: input.width, height: input.height });
-
-    resized.forEach( detection => {
-      const box = detection.detection.box
-      const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
-      drawBox.draw(canvas)
-    })
-  }
-
-  const handleVideo = async () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.width;
-    canvas.height = video.height;
-    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withAgeAndGender();    
-    const resized = await faceapi.resizeResults(detections, { width: video.width, height: video.height });
-    console.log(detections);
-    resized.forEach( detection => {
-      const box = detection.detection.box
-      const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
-      drawBox.draw(canvas)
+
+    video.addEventListener('play',handleVideo);
+
+    return (()=> {
+      video.removeEventListener('play', handleVideo);
     })
-  }
+  }, [handleVideo])
 
   return (
     <Container>
@@ -103,11 +128,10 @@ const App = () => {
       } 
       <DisplayResults>
         <ImageContainer visibility={imageVisibility}>        
-          <Image crossOrigin='anonymous' src={url} alt='' width="720" height="560" ref={imageRef}></Image>   
+          <Image crossOrigin='anonymous' src={url} alt='' width="720" height="480" ref={imageRef}></Image>   
         </ImageContainer>    
-        <VideoContainer visibility={videoVisibility} ref={videoRef} width="720" height="560" autoPlay muted></VideoContainer>
-        <canvas width="720" height="560" ref={canvasRef}></canvas>        
-
+        <VideoContainer visibility={videoVisibility} width="720" height="480" ref={videoRef} autoPlay muted></VideoContainer>
+        <CanvasContainer visibility={canvasVisibility} width="720" height="480" ref={canvasRef}></CanvasContainer>
       </DisplayResults>      
     </Container>    
   )
